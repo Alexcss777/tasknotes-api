@@ -67,6 +67,54 @@ def createTask():
     
     return jsonify({'id': str(inserted_id), 'message': 'tarea created successfully'})
 
+#obtener tareas
+@app.route('/tasks/<id>', methods=['GET'])
+def getTasks(id):
+    print(f"Buscando tareas para el usuario con id: {id}")
+    tasks = dbt.find({'idUser': id})
+
+    task_list = [{
+        '_id': str(ObjectId(task['_id'])),
+        'name': task['name'],
+        'idUser': task['idUser'],
+        'date': task['date'], 
+        'description': task['description']
+    } for task in tasks]
+
+    print(f"Número de tareas encontradas: {len(task_list)}")
+    return jsonify(task_list)
+
+
+#eliminar tareas 
+@app.route('/tasks/<id>', methods=['DELETE'])
+def deleteTask(id):
+    dbt.delete_one({'_id': ObjectId(id)})
+    return jsonify({'msg': 'tarea eliminada'})
+
+#actualizar usuario
+@app.route('/tasks/<id>', methods=['PUT'])
+def updateTask(id):
+    dbt.update_one({'_id': ObjectId(id)}, {'$set': {
+        'name': request.json['name'],
+        'date': request.json['date'],
+        'description': request.json['description']
+    }})
+    
+    return jsonify({'message': 'User updated successfully'})
+
+#obtener tareas por su id
+@app.route('/task/<id>', methods=['GET'])
+def getTaskId(id):
+    task= dbt.find_one({'_id': ObjectId(id)})
+    print(task)
+    return jsonify({
+        '_id': str(ObjectId(task['_id'])),
+        'name': task['name'],
+        'idUser': task['idUser'],
+        'date': task['date'], 
+        'description': task['description']
+    })
+
 
 #inicio de sesion
 @app.route('/login', methods=['POST'])
@@ -81,10 +129,11 @@ def login():
 
     if usuario and bcrypt.check_password_hash(usuario['password'], password):
         user_id = str(usuario['_id'])
+        name = str(usuario['name'])
         token = generate_token({'user_id': str(usuario['_id']), 'email': usuario['email']})
         session['email'] = usuario['email']
         return jsonify({'token': token, 'mensaje': 'Inicio de sesión exitoso','email':email, 'user_id':user_id,
-                        'status':'ok'}), 200
+                        'name':name,'status':'ok'}), 200
     else:
         return jsonify({'mensaje': 'Credenciales inválidas'}), 401
 
@@ -103,7 +152,7 @@ def getUsers():
 
     return jsonify(users)
 
-#mostrar usuarios
+#obtener usuarios
 @app.route('/user/<id>', methods=['GET'])
 def getUser(id):
     user = db.find_one({'_id': ObjectId(id)})
