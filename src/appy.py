@@ -1,11 +1,15 @@
 
 import datetime
+from functools import wraps
 from bson import ObjectId
 from flask import Flask, jsonify, request, session
 from flask_pymongo import PyMongo
 from flask_cors import CORS
 from flask_bcrypt import Bcrypt
 import jwt 
+from flask import current_app
+
+
 
 app = Flask(__name__)
 app.config['MONGO_URI']='mongodb://localhost:27017/pythondb'
@@ -136,21 +140,46 @@ def login():
                         'name':name,'status':'ok'}), 200
     else:
         return jsonify({'mensaje': 'Credenciales inválidas'}), 401
+    
+    
+#token validacion
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization')
+
+        if not token:
+            return jsonify({'mensaje': 'Token faltante'}), 401
+
+        try:
+            # Decodificar el token
+             decoded_token = jwt.decode(token.split(" ")[1], current_app.config['SECRET_KEY'], algorithms=['HS256'])
+            # Puedes almacenar la información del usuario en 'decoded_token' y usarla en la función protegida
+        except jwt.ExpiredSignatureError:
+            return jsonify({'mensaje': 'Token expirado'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'mensaje': 'Token inválido'}), 401
+
+        return f(*args, **kwargs)
+
+    return decorated
 
  #Usuarios //
 @app.route('/users', methods=['GET'])
+@token_required
 def getUsers():
-    users = []
-    for doc in db.find():
-        user = {
-            '_id': str(doc['_id']),
-            'name': doc['name'],
-            'email': doc['email'],
-            'password': doc['password']  
-        }
-        users.append(user)
+        users = []
+        for doc in db.find():
+            user = {
+                '_id': str(doc['_id']),
+                'name': doc['name'],
+                'email': doc['email'],
+                'password': doc['password']  
+            }
+            users.append(user)
 
-    return jsonify(users)
+        return jsonify(users)
+   
 
 #obtener usuarios
 @app.route('/user/<id>', methods=['GET'])
